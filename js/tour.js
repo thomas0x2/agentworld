@@ -755,7 +755,8 @@
         AW.ui.toast(`Every stop can be replayed in this reading: stand on a ✓ and press Space. Or just wander and talk to people.`, 5200);
       } else if (act === 'restart') {
         g.clearSave();
-        location.reload();
+        g.start(g.version, null);
+        await AW.tour.intro();
       } else {
         AW.ui.toast('Wander freely. Stand on any ✓ stop and press Space to replay it; press V to switch readings.', 4200);
       }
