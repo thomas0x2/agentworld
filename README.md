@@ -1,6 +1,9 @@
 # Agentworld: Parallax
 
-A five-minute, top-down field visit to **Parallax**, a town of 312 humans and 31,200 agents, built from the ten chapters of the *Agentworld* brief (Benjamin Bratton, Antikythera). It isn't a story game. It's a guided walk: ten stops, one per chapter, each turning one of the brief's abstract ideas into something you can see, try or talk to.
+A top-down field visit to **Parallax**, a town of 312 humans and 31,200 agents, built from the ten chapters of the *Agentworld* brief (Benjamin Bratton, Antikythera). It isn't a story game. It's a guided walk over two days, about five minutes each:
+
+- **Day 1** introduces the ideas: ten stops, one per chapter, each turning one of the brief's abstract ideas into something you can see, try or talk to.
+- **Day 2** is an ordinary Tuesday in the same town: commute, coffee, work, the doctor, paperwork, lunch with friends, school, home. It leans on the parts of daily life that would change most, and ends by showing how unevenly each one changed.
 
 The brief leaves a lot open, so the town comes in **three readings**. You can switch between them at any moment (V, or 1 2 3). The town re-materializes around you and your progress carries over.
 
@@ -24,10 +27,10 @@ python3 -m http.server 8000   # then open http://localhost:8000
 | Space / Enter | Talk, read, continue |
 | L | Lens for the current reading |
 | V, or 1 2 3 | Switch reading |
-| N | Field notebook: each chapter's key quote and what you saw in each reading |
+| N | Field notebook: each stop's key quote and what you saw in each reading |
 | H, M | Help, sound |
 
-A finished stop shows a ✓. Stand on it and press Space to replay it in the current reading, which is the easiest way to compare readings. On phones and tablets an on-screen pad appears. Progress is saved in the browser; add `?fresh` to the URL to ignore the save.
+A finished stop shows a ✓. Stand on it and press Space to replay it in the current reading, which is the easiest way to compare readings. Day 2 starts from the end of Day 1, from Mira once Day 1 is done, or straight from the title screen; Mira takes you back to Day 1 the same way. On phones and tablets an on-screen pad appears. Progress is saved in the browser; add `?fresh` to the URL to ignore the save.
 
 ## The ten stops
 
@@ -46,6 +49,21 @@ Follow the glowing marker. Each stop is one chapter. Your companion is **Mira**,
 | 9 | Xenosociality (§9.1–9.8) | Human-Made Garden | Protesters at a shrinking human-only garden. A tram stop where you can't tell who's human. Reactive vs. productive alienation. |
 | 10 | Artificial Hybrid Intelligence (§10.1–10.6) | The Commons | You add your notes to the Commons and the camera pulls back until the whole town is one hybrid social graph, with the power plant pulsing at its edge. Ends on the brief's FROM → TO table. |
 
+## Day 2: an ordinary Tuesday
+
+Same map, same three readings, and the light moves from morning to night. The stops run in order, the way a day does. Each one has a choice that a later stop remembers, and each is tied to a passage of the brief.
+
+| Time | Stop | Where | What happens |
+|---|---|---|---|
+| 07:00 | While you slept (§6.5) | Your lodging | A ledger of what your agents did overnight: 41,906 agent-to-agent exchanges and one decision left for you (Jun wants your old parking spot; nobody has a car any more). |
+| 08:10 | Commute and coffee (§6.5, §5.2) | Niche Street | A pod with no driver. Ride alone or pool with a stranger; three pods cross a junction with no lights and nobody brakes. Your coffee meets you at the curb because a forecast ordered it. |
+| 09:30 | Work (§1.2) | The Switchboard | Sol's agents did nine hours of work before she arrived. Her job is choosing what it was for (which flour contract) and answering for it. |
+| 11:00 | The doctor (§5.2, §7.2) | Clinic | You feel fine, but your simulations flagged your knee eight years out. Ghosts of you walk off into possible futures; the doctor asks what risk is worth to you. |
+| 12:00 | Paperwork (§10.2) | Registry | Everything was filed at 4 a.m., agent to agent. The only form left is your norm of delegation: what your agents may sign without asking you. |
+| 12:30 | Lunch with friends (§6.5) | Café terrace | The one hour you were all free took eleven thousand messages to find. Ama sends her agent instead of coming. The bill splits itself. Dunbar's 150 hasn't moved. |
+| 15:30 | School (§8.2) | School steps | Nia has a tutor that agrees with everything and one that pushes back. The teacher teaches which one to believe. |
+| 21:00 | Home (§10.5) | Your lodging | The day added up: getting around and paperwork changed almost completely, friends barely. The frontier is jagged. |
+
 ## How it's built
 
 Plain HTML, CSS and JavaScript (classic scripts sharing one `AW` namespace), drawn on a 384×240 canvas scaled up crisply. There are no image assets: every tile, building and sprite is painted in code, so the three readings are three painters over one map.
@@ -60,7 +78,8 @@ js/versions.js    the three readings: names, casting, ambient lines
 js/niche.js       Niche Street at stages 4A / 4B / 4C
 js/game.js        entities, movement, camera, rendering, lenses, effects
 js/ui.js          dialogue, choices, panels, notebook, HUD, title
-js/tour.js        the ten chapter scenes and the notebook text
+js/tour.js        the ten chapter scenes (Day 1) and the notebook text
+js/day2.js        an ordinary Tuesday (Day 2): its eight scenes, cast and day switch
 js/main.js        boot
 ```
 

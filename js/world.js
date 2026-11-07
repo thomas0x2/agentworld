@@ -35,8 +35,11 @@
       return this.props.find((p) => x >= p.x && y >= p.y && x < p.x + p.w && y < p.y + p.h) || null;
     },
     station(n) { return this.stations[n - 1]; },
-    stationAt(x, y) {
-      return this.stations.find((s) => x >= s.area[0] && y >= s.area[1] && x < s.area[0] + s.area[2] && y < s.area[1] + s.area[3]) || null;
+    // where the player is left after a stop: its stand, or where the scene drops you off
+    resumeAt(n) { const s = this.stations[n - 1]; return s.exit ? s.exit : [s.stand[0], s.stand[1], s.face]; },
+    // all stations of one day whose trigger area contains (x, y)
+    stationsAt(x, y, day) {
+      return this.stations.filter((s) => (s.day || 1) === (day || 1) && x >= s.area[0] && y >= s.area[1] && x < s.area[0] + s.area[2] && y < s.area[1] + s.area[3]);
     },
   });
 
@@ -91,7 +94,7 @@
     addBuilding({ id: 'sim', kind: 'sim', x: 50, y: 2, w: 7, h: 5, hue: 5 });
     addBuilding({ id: 'atelier', kind: 'atelier', x: 3, y: 14, w: 7, h: 5, hue: 6 });
     addBuilding({ id: 'school', kind: 'school', x: 15, y: 14, w: 7, h: 5, hue: 7 });
-    addBuilding({ id: 'hall', kind: 'hall', x: 38, y: 14, w: 7, h: 5, hue: 8 });
+    addBuilding({ id: 'clinic', kind: 'clinic', x: 38, y: 14, w: 7, h: 5, hue: 8 });
     addBuilding({ id: 'switch', kind: 'switch', x: 50, y: 13, w: 7, h: 5, hue: 9 });
     addBuilding({ id: 'registry', kind: 'registry', x: 37, y: 22, w: 8, h: 5, hue: 10 });
     addBuilding({ id: 'court', kind: 'court', x: 50, y: 24, w: 7, h: 7, hue: 11 });
@@ -141,17 +144,27 @@
 
     // stations -------------------------------------------------------------
     // area = trigger rectangle [x,y,w,h]; stand = where the player is walked to; face = facing there
+    // exit = where a scene leaves the player, when that isn't the stand (the commute ends across town)
+    // Day 1: one stop per chapter. Day 2: one ordinary Tuesday, in order (stops 11 to 18).
     world.stations = [
-      { n: 1, key: 'census', area: [26, 23, 9, 5], stand: [30, 25], face: 'right', focus: [33, 24] },
-      { n: 2, key: 'atelier', area: [2, 19, 9, 3], stand: [6, 20], face: 'up', focus: [6, 19] },
-      { n: 3, key: 'lodging', area: [13, 7, 8, 2], stand: [16, 7], face: 'up', focus: [16, 6] },
-      { n: 4, key: 'niche', area: [24, 7, 13, 2], stand: [30, 8], face: 'up', focus: [30, 6] },
-      { n: 5, key: 'sim', area: [49, 7, 9, 2], stand: [53, 8], face: 'down', focus: [53, 9] },
-      { n: 6, key: 'switch', area: [49, 18, 9, 4], stand: [51, 19], face: 'up', focus: [51, 18] },
-      { n: 7, key: 'court', area: [49, 31, 9, 5], stand: [53, 33], face: 'up', focus: [53, 31] },
-      { n: 8, key: 'cafe', area: [32, 33, 14, 3], stand: [38, 34], face: 'left', focus: [36, 32] },
-      { n: 9, key: 'garden', area: [14, 32, 11, 4], stand: [19, 33], face: 'up', focus: [19, 31] },
-      { n: 10, key: 'commons', area: [27, 18, 6, 6], stand: [29, 22], face: 'up', focus: [29, 20] },
+      { n: 1, day: 1, key: 'census', area: [26, 23, 9, 5], stand: [30, 25], face: 'right', focus: [33, 24] },
+      { n: 2, day: 1, key: 'atelier', area: [2, 19, 9, 3], stand: [6, 20], face: 'up', focus: [6, 19] },
+      { n: 3, day: 1, key: 'lodging', area: [13, 7, 8, 2], stand: [16, 7], face: 'up', focus: [16, 6] },
+      { n: 4, day: 1, key: 'niche', area: [24, 7, 13, 2], stand: [30, 8], face: 'up', focus: [30, 6] },
+      { n: 5, day: 1, key: 'sim', area: [49, 7, 9, 2], stand: [53, 8], face: 'down', focus: [53, 9] },
+      { n: 6, day: 1, key: 'switch', area: [49, 18, 9, 4], stand: [51, 19], face: 'up', focus: [51, 18] },
+      { n: 7, day: 1, key: 'court', area: [49, 31, 9, 5], stand: [53, 33], face: 'up', focus: [53, 31] },
+      { n: 8, day: 1, key: 'cafe', area: [32, 33, 14, 3], stand: [38, 34], face: 'left', focus: [36, 32] },
+      { n: 9, day: 1, key: 'garden', area: [14, 32, 11, 4], stand: [19, 33], face: 'up', focus: [19, 31] },
+      { n: 10, day: 1, key: 'commons', area: [27, 18, 6, 6], stand: [29, 22], face: 'up', focus: [29, 20] },
+      { n: 11, day: 2, key: 'morning', area: [13, 7, 8, 2], stand: [17, 7], face: 'down', focus: [17, 6] },
+      { n: 12, day: 2, key: 'commute', area: [21, 7, 4, 2], stand: [22, 8], face: 'right', focus: [23, 7], exit: [48, 19, 'right'] },
+      { n: 13, day: 2, key: 'work', area: [49, 18, 5, 3], stand: [51, 19], face: 'up', focus: [51, 18] },
+      { n: 14, day: 2, key: 'doctor', area: [39, 19, 5, 2], stand: [41, 19], face: 'up', focus: [41, 18] },
+      { n: 15, day: 2, key: 'admin', area: [39, 27, 5, 1], stand: [41, 27], face: 'up', focus: [41, 26] },
+      { n: 16, day: 2, key: 'lunch', area: [33, 31, 5, 1], stand: [35, 31], face: 'down', focus: [35, 32] },
+      { n: 17, day: 2, key: 'school', area: [15, 20, 7, 2], stand: [18, 20], face: 'up', focus: [18, 19] },
+      { n: 18, day: 2, key: 'evening', area: [15, 7, 4, 2], stand: [17, 7], face: 'up', focus: [17, 6] },
     ];
 
     // trees & flowers: deterministic scatter that keeps verges and station sites clear

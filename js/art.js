@@ -539,7 +539,7 @@
   /* ======================================================= buildings */
   const KIND_ICON = {
     sim: 'SIM', court: 'COURT', cafe: 'CAFE', registry: 'REGISTRY', plant: 'POWER', switch: 'SWITCH',
-    atelier: 'ATELIER', school: 'SCHOOL', home: 'LODGING', hall: 'TOWN HALL', house: 'HOUSE', shop: 'SHOP',
+    atelier: 'ATELIER', school: 'SCHOOL', home: 'LODGING', clinic: 'CLINIC', house: 'HOUSE', shop: 'SHOP',
   };
   art.buildingLabel = function (b, v) {
     const L = (AW.VERSIONS && AW.VERSIONS[v] && AW.VERSIONS[v].buildingNames) || {};
@@ -587,12 +587,17 @@
       disc(c, x + w - 18, y + 9, 6, '#e8edf2'); disc(c, x + w - 18, y + 9, 4, '#c3ccd6'); R(c, x + w - 19, y + 9, 2, 8, '#8a94a3');
     }
     if (k === 'switch') { for (const ax of [10, 22, 34]) { R(c, x + ax, y - 4, 1, 8, '#4a4f5a'); P(c, x + ax, y - 5, '#ff5a5a'); } }
-    if (k === 'court' || k === 'registry' || k === 'hall') {
+    if (k === 'court' || k === 'registry') {
       for (let i = 0; i < b.w; i++) if (i !== dcol) R(c, x + i * 16 + 2, wy + 2, 2, wh - 5, '#ffffff');
       // pediment
       for (let j = 0; j < 8; j++) R(c, x + w / 2 - j * 3, y + 2 + j, j * 6, 1, U.shade(roof, 0.35));
     }
-    if (k === 'hall') { disc(c, x + w / 2, y + 12, 5, '#fffbe8'); line(c, x + w / 2, y + 12, x + w / 2, y + 9, '#333'); line(c, x + w / 2, y + 12, x + w / 2 + 3, y + 12, '#333'); }
+    if (k === 'clinic') {
+      // a white awning band and a green cross on the roof
+      R(c, x + 1, wy - 2, w - 2, 3, '#ffffff'); R(c, x + 1, wy + 1, w - 2, 1, '#2fa36b');
+      disc(c, x + w / 2, y + 11, 6, '#ffffff');
+      R(c, x + w / 2 - 1, y + 7, 3, 9, '#2fa36b'); R(c, x + w / 2 - 4, y + 10, 9, 3, '#2fa36b');
+    }
     if (k === 'cafe') {
       for (let i = 0; i < w - 2; i += 6) R(c, x + 1 + i, wy - 2, 3, 6, i % 12 ? '#ffffff' : '#e55a4f');
       R(c, x + 1, wy + 4, w - 2, 1, U.shade('#e55a4f', -0.3));
@@ -677,7 +682,11 @@
     }
     if (k === 'switch') for (const ax of [10, 24, 38]) { R(c, x + ax, y - 3, 1, 8, '#1f2b26'); P(c, x + ax, y - 4, f === 0 ? p.glow2 : p.glow); }
     if (k === 'court') { for (let i = 0; i < 3; i++) ring(c, x + w / 2, y + roofH / 2 + 2, 4 + i * 4, U.shade(p.glow4, -0.2 * i)); }
-    if (b.sign || k === 'cafe' || k === 'atelier') {
+    if (k === 'clinic') {
+      const cx = x + w / 2, cy = y + roofH / 2 + 1, gc = f === 0 ? p.glow : U.shade(p.glow, -0.3);
+      R(c, cx - 1, cy - 4, 3, 9, gc); R(c, cx - 4, cy - 1, 9, 3, gc);
+    }
+    if (b.sign || k === 'cafe' || k === 'atelier' || k === 'clinic' || k === 'school' || k === 'registry') {
       const label = art.buildingLabel(b, 'II');
       const tw = AW.font.width(label) + 6;
       const sx = Math.round(x + w / 2 - tw / 2);
@@ -723,6 +732,7 @@
     if (k === 'switch') { disc(c, gx + 1, gy + 4, 1.5, p.blue); disc(c, gx + 10, gy + 1, 1.5, p.blue); disc(c, gx + 10, gy + 7, 1.5, p.blue); line(c, gx + 1, gy + 4, gx + 10, gy + 1, p.blue); line(c, gx + 1, gy + 4, gx + 10, gy + 7, p.blue); }
     if (k === 'plant') { line(c, gx + 6, gy, gx + 2, gy + 5, p.red); line(c, gx + 2, gy + 5, gx + 8, gy + 4, p.red); line(c, gx + 8, gy + 4, gx + 4, gy + 9, p.red); }
     if (k === 'atelier') { for (let i = 0; i < 5; i++) R(c, gx, gy + i * 2, 12, 1, i === 0 ? p.red : p.blue); }
+    if (k === 'clinic') { R(c, gx + 4, gy, 3, 9, p.red); R(c, gx + 1, gy + 3, 9, 3, p.red); }
   }
 
   art.paintBuilding = function (ctx, v, b, frame) {
@@ -997,6 +1007,99 @@
   CHAR.node = function (c, s, d, f) {
     const col = s.color || '#2a2ae0';
     ring(c, 8, 12, 5, col); disc(c, 8, 12, 2.5, col);
+  };
+
+  /* ======================================================= vehicles (Day 2)
+     Drawn directly, not from the sprite cache: a pod is two tiles long and carries riders.
+     x, y: the top-left of the tile it occupies. o: { small, riders, body } */
+  art.drawVehicle = function (c, v, x, y, dir, t, o) {
+    o = o || {};
+    const p = PAL[v];
+    const horiz = dir === 'left' || dir === 'right';
+    const front = dir === 'right' || dir === 'down' ? 1 : -1;
+    const small = !!o.small;
+    // footprint, centred on the tile
+    const bw = horiz ? (small ? 18 : 30) : (small ? 12 : 16);
+    const bh = horiz ? (small ? 10 : 15) : (small ? 16 : 26);
+    const bx = Math.round(x + 8 - bw / 2), by = Math.round(y + 12 - bh);
+    const riders = o.riders || 0;
+    c.fillStyle = v === 'III' ? 'rgba(42,42,224,0.12)' : 'rgba(0,0,0,0.25)';
+    c.beginPath(); c.ellipse(x + 8, y + 13, bw / 2, 2.5, 0, 0, Math.PI * 2); c.fill();
+    if (v === 'I') {
+      const body = o.body || '#f3ead2', stripe = small ? '#c8463d' : '#2f8f86';
+      R(c, bx, by + 2, bw, bh - 4, body); R(c, bx + 1, by + 1, bw - 2, 2, U.shade(body, 0.2));
+      R(c, bx, by + bh - 6, bw, 2, stripe);
+      R(c, bx, by + 2, 1, bh - 4, U.shade(body, -0.35)); R(c, bx + bw - 1, by + 2, 1, bh - 4, U.shade(body, -0.35));
+      // wheels
+      const wy = by + bh - 2;
+      if (horiz) { disc(c, bx + 5, wy, 2.5, '#1f1f24'); disc(c, bx + bw - 6, wy, 2.5, '#1f1f24'); P(c, bx + 5 + (Math.floor(t * 8) % 2), wy, '#888'); }
+      else { R(c, bx - 1, by + 4, 2, 5, '#1f1f24'); R(c, bx + bw - 1, by + 4, 2, 5, '#1f1f24'); R(c, bx - 1, by + bh - 9, 2, 5, '#1f1f24'); R(c, bx + bw - 1, by + bh - 9, 2, 5, '#1f1f24'); }
+      // windows; the front one has a chauffeur persona in it, though nobody is driving
+      const win = (wx, wy2, ww, wh) => { R(c, wx, wy2, ww, wh, '#2b3a4a'); R(c, wx + 1, wy2 + 1, ww - 2, wh - 2, '#9fd3f2'); };
+      if (horiz && !small) {
+        const fx = front > 0 ? bx + bw - 9 : bx + 2;
+        win(fx, by + 3, 7, 6);
+        disc(c, fx + 3.5, by + 6.5, 1.8, '#e0ac7e'); R(c, fx + 2, by + 4, 3, 1, '#3b2a20'); P(c, fx + (front > 0 ? 5 : 2), by + 6, '#3fc8ff');
+        for (let i = 0; i < 2; i++) {
+          const wx = front > 0 ? bx + 3 + i * 8 : bx + 11 + i * 8;
+          win(wx, by + 3, 7, 6);
+          const who = riders > 0 && i === (front > 0 ? 1 : 0) ? 'you' : riders > 1 && i === (front > 0 ? 0 : 1) ? 'mira' : riders > 2 ? 'other' : null;
+          if (who === 'you') { disc(c, wx + 3.5, by + 7, 1.8, '#f1c7a0'); R(c, wx + 1, by + 4, 5, 2, '#c9a45c'); }
+          else if (who === 'mira') { disc(c, wx + 3.5, by + 6.5, 2, '#cfc6ff'); P(c, wx + 3, by + 6, '#3fc8ff'); }
+          else if (who === 'other') { disc(c, wx + 3.5, by + 6.5, 1.8, '#c68c5e'); R(c, wx + 2, by + 4, 3, 1, '#1f1a18'); }
+        }
+      } else if (horiz) {
+        win(front > 0 ? bx + bw - 7 : bx + 2, by + 3, 5, 4);
+      } else {
+        win(bx + 2, front > 0 ? by + bh - 10 : by + 3, bw - 4, 6);
+        if (!small) { win(bx + 3, by + 11, bw - 6, 5); if (riders) { disc(c, bx + 8, by + 13.5, 1.8, '#f1c7a0'); R(c, bx + 6, by + 11, 5, 1, '#c9a45c'); } }
+      }
+      P(c, horiz ? (front > 0 ? bx + bw - 1 : bx) : bx + 2, horiz ? by + bh - 7 : (front > 0 ? by + bh - 3 : by + 2), '#ffe680');
+    } else if (v === 'II') {
+      const body = o.body || '#1d2d2a', glow = small ? p.glow2 : p.glow;
+      const cx = x + 8, cy = by + bh / 2;
+      const rx = bw / 2, ry = bh / 2 - 1;
+      // legs, ticking
+      const n = small ? 2 : 3;
+      for (let i = 0; i < n; i++) {
+        const up = (Math.floor(t * 10) + i) % 2;
+        if (horiz) {
+          const lx = Math.round(bx + 5 + (i * (bw - 10)) / Math.max(1, n - 1));
+          R(c, lx, by + bh - 3, 1, 3 - up, U.shade(body, 0.3)); P(c, lx + (up ? 1 : -1), by + bh - up, U.shade(body, 0.3));
+        } else {
+          const ly = Math.round(by + 5 + (i * (bh - 10)) / Math.max(1, n - 1));
+          R(c, bx - 2, ly + up, 2, 1, U.shade(body, 0.3)); R(c, bx + bw, ly + 1 - up, 2, 1, U.shade(body, 0.3));
+        }
+      }
+      ellipse(c, cx, cy, rx, ry, body);
+      ellipse(c, cx, cy - 1, rx - 1, ry - 2, U.shade(body, 0.15));
+      if (horiz) R(c, bx + 3, cy + 2, bw - 6, 1, glow); else R(c, cx - 1, by + 3, 1, bh - 6, glow);
+      if (!small) {
+        // a canopy; riders show as heat
+        const kx = horiz ? cx - front * 3 : cx, ky = horiz ? cy - 2 : cy - front * 3;
+        ellipse(c, kx, ky, horiz ? 8 : 5, horiz ? 4 : 7, U.rgba('#9ff8ff', 0.3));
+        if (riders > 0) disc(c, kx - (horiz ? 3 : 0), ky - (horiz ? 0 : 2), 2, '#ffb86b');
+        if (riders > 1) disc(c, kx + (horiz ? 3 : 0), ky + (horiz ? 0 : 2), 1.6, '#b18cff');
+        if (riders > 2) disc(c, kx, ky, 1.6, '#ffb86b');
+      }
+      const ex = horiz ? (front > 0 ? bx + bw - 2 : bx + 1) : cx, ey = horiz ? cy - 1 : (front > 0 ? by + bh - 2 : by + 1);
+      P(c, ex, ey, '#ffffff'); P(c, ex + (horiz ? 0 : 1), ey + (horiz ? 1 : 0), glow);
+    } else {
+      // Lattice: a box on an edge, an A at the front, an H for each human aboard
+      R(c, bx, by, bw, bh, p.paper);
+      R(c, bx, by, bw, 1, p.blue); R(c, bx, by + bh - 1, bw, 1, p.blue); R(c, bx, by, 1, bh, p.blue); R(c, bx + bw - 1, by, 1, bh, p.blue);
+      if (horiz) {
+        const tail = front > 0 ? bx - 1 : bx + bw;
+        for (let i = 0; i < 4; i++) R(c, tail - front * (2 + i * 4), by + bh / 2, 2, 1, p.blueL);
+        AW.font.draw(c, 'A', front > 0 ? bx + bw - 5 : bx + 2, by + Math.round(bh / 2) - 2, p.blue);
+        if (!small) { if (riders > 0) AW.font.draw(c, 'H', front > 0 ? bx + 3 : bx + bw - 6, by + 5, p.ink); if (riders > 1) AW.font.draw(c, 'A', front > 0 ? bx + 9 : bx + bw - 12, by + 5, p.blue); if (riders > 2) AW.font.draw(c, 'H', front > 0 ? bx + 15 : bx + bw - 18, by + 5, p.ink); }
+      } else {
+        const tail = front > 0 ? by - 1 : by + bh;
+        for (let i = 0; i < 4; i++) R(c, bx + bw / 2, tail - front * (2 + i * 4), 1, 2, p.blueL);
+        AW.font.draw(c, 'A', bx + Math.round(bw / 2) - 1, front > 0 ? by + bh - 7 : by + 2, p.blue);
+        if (!small && riders > 0) AW.font.draw(c, 'H', bx + Math.round(bw / 2) - 1, front > 0 ? by + 4 : by + bh - 8, p.ink);
+      }
+    }
   };
 
   /* Big portrait canvas (scaled sprite) for panels */

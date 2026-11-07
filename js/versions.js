@@ -11,7 +11,7 @@
       leans: 'Leans on ch. 2, 3 and 9: the mask, the shadow, the uncanny.',
       lens: 'Unmask', lensHint: 'See each agent as a lamination of layers, with its subagents churning backstage.',
       buildingNames: {
-        lodging: 'YOUR LODGING', sim: 'BUREAU OF FORECASTS', atelier: 'PERSONA ATELIER', school: 'SCHOOL', hall: 'TOWN HALL',
+        lodging: 'YOUR LODGING', sim: 'BUREAU OF FORECASTS', atelier: 'PERSONA ATELIER', school: 'SCHOOL', clinic: 'CLINIC',
         switch: 'SWITCHBOARD', registry: 'REGISTRY', court: 'HALL OF ROLES', cafe: 'CAFE GLOSSARY', plant: 'POWER + COOLING', house: 'HOUSE',
       },
       quip: 'Masks back on. A human face is still the most compatible interface.',
@@ -22,7 +22,7 @@
       leans: 'Leans on ch. 1, 4 and 10: crossover, niche construction, energy.',
       lens: 'Sensorium', lensHint: 'See what agents sense: lidar, sonar, thermal, RF. Hardware has feelings.',
       buildingNames: {
-        lodging: 'YOUR LODGING', sim: 'MODEL TERRARIUM', atelier: 'MOLTING YARD', school: 'SCHOOL', hall: 'TOWN HALL',
+        lodging: 'YOUR LODGING', sim: 'MODEL TERRARIUM', atelier: 'MOLTING YARD', school: 'SCHOOL', clinic: 'CLINIC',
         switch: 'HIVE CONSOLE', registry: 'SEED REGISTRY', court: 'MOOT GROVE', cafe: 'CAFE GLOSSARY', plant: 'SUN + COOLING', house: 'HOUSE',
       },
       quip: 'Bodies again. The niche, remade around many kinds of senses.',
@@ -33,7 +33,7 @@
       leans: 'Leans on ch. 5 to 8: simulation, orchestration, institutions, theory of mind.',
       lens: 'Graph', lensHint: 'See every edge: human to human, human to agent, agent to agent, agent to institution.',
       buildingNames: {
-        lodging: 'YOU', sim: 'SIM HALL', atelier: 'ASSEMBLY', school: 'SCHOOL', hall: 'HALL', switch: 'ORCHESTRATION',
+        lodging: 'YOU', sim: 'SIM HALL', atelier: 'ASSEMBLY', school: 'SCHOOL', clinic: 'CLINIC', switch: 'ORCHESTRATION',
         registry: 'REGISTRY', court: 'SCAFFOLD', cafe: 'GLOSSARY', plant: 'ENERGY', house: 'HOUSE', home: 'YOU',
       },
       quip: 'Diagram view. The graph was there all along.',
@@ -142,6 +142,18 @@
       case 'corr1': return agent(v, { top: '#5fa572', morph: 'roller' }, 94);
       case 'corr2': return agent(v, { top: '#d96f9e', morph: 'crawler' }, 95);
       case 'wanderAgent': return agent(v, {}, seed);
+      // Day 2
+      case 'doctor': return human(v, { skin: '#c68c5e', hair: '#2a2a40', hairStyle: 'bun', top: '#f4f4f4', bottom: '#5a6a7a', accent: '#2fa36b', mark: '#2fa36b' });
+      case 'teacher': return human(v, { skin: '#f1c7a0', hair: '#a33b2a', hairStyle: 'long', top: '#5fa572', bottom: '#3a3f4f' });
+      case 'pupil': return human(v, { scale: 0.8 }, seed);
+      case 'registrar': return agent(v, { top: '#2f4f8f', bottom: '#2a2a30', hairStyle: 'short', hair: '#d8d8d8', hat: '#2f4f8f', hatBand: '#ffd23f', morph: 'walker', body: '#9aa6b2', accent: '#8fb8ff', ring: '#2a2ae0' }, 131);
+      case 'tutor_yes': return agent(v, { top: '#ff9ad5', hair: '#ffd23f', hairStyle: 'spiky', eyes: '#ff7ad9', morph: 'drone', body: '#ffb3d9', accent: '#ffd36e', fill: '#ff9ad5' }, 141);
+      case 'tutor_no': return agent(v, { top: '#6c8f9e', hair: '#2a2a40', hairStyle: 'short', morph: 'walker', body: '#8f8a80', accent: '#6ff5d2', fill: '#10104a' }, 142);
+      case 'ama':
+        if (v === 'I') return agent('I', { skin: '#8d5a3b', hair: '#1f1a18', hairStyle: 'bun', top: '#e07b39', bottom: '#4a3f5a', eyes: '#3fc8ff' });
+        if (v === 'II') return finalize({ type: 'drone', body: '#e07b39', accent: '#ffd36e', outline: '#0b1a1a', glow: true });
+        return finalize({ type: 'glyphA', color: '#2a2ae0', fill: '#e8432f' });
+      case 'barista': return agent(v, { top: '#e55a4f', bottom: '#3a3f4f', hair: '#3b2a20', hairStyle: 'short', hat: '#ffffff', morph: 'drone', body: '#c98f5e', accent: '#ffd36e' }, 151);
       default:
         if (role.startsWith('fork_')) {
           const f = FORKS[role.slice(5)] || {};
@@ -158,7 +170,20 @@
   V.initialNiche = (v) => (v === 'II' ? 2 : 0);
   V.switchQuip = (v) => 'Mira: “' + AW.VERSIONS[v].quip + ' Same me, different body. The persona is just one layer.”';
   V.busyMsg = () => 'Finish this scene first, then switch worlds.';
-  V.replayHint = (n, v) => `Ch.${n} is in your notebook. Press Space to replay it as ${AW.VERSIONS[v].name}.`;
+  V.replayHint = (n, v) => (n > 10
+    ? `${AW.NOTES[n - 1].time} ${AW.NOTES[n - 1].title} is in your notebook. Press Space to replay it as ${AW.VERSIONS[v].name}.`
+    : `Ch.${n} is in your notebook. Press Space to replay it as ${AW.VERSIONS[v].name}.`);
+  V.laterHint = (n) => `Later today: ${AW.NOTES[n - 1].time} ${AW.NOTES[n - 1].title}. Follow the marker for what’s next.`;
+  /* Day 2 light, by reading and time of day */
+  const TINT = {
+    I: { morning: 'rgba(255,214,160,0.12)', day: null, afternoon: 'rgba(255,170,80,0.12)', evening: 'rgba(28,22,78,0.42)' },
+    II: { morning: 'rgba(150,255,235,0.06)', day: null, afternoon: null, evening: 'rgba(0,2,14,0.3)' },
+    III: { morning: null, day: null, afternoon: null, evening: 'rgba(42,42,224,0.08)' },
+  };
+  V.dayTint = (v, n) => {
+    const note = AW.NOTES[n - 1];
+    return (note && note.phase && TINT[v][note.phase]) || null;
+  };
   V.commonsHint = () => 'Mira: “The Commons. This is where we end. Nine stops first.”';
 
   /* ambient lines, by reading and kind */

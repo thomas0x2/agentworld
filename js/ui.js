@@ -28,6 +28,15 @@
     dash: { label: 'DASH', cls: 'sp-agent', voice: 620, role: 'dash' },
     kintsu: { label: 'KINTSU', cls: 'sp-agent', voice: 760, role: 'kintsu' },
     bram: { label: 'BRAM', cls: 'sp-human', voice: 260, role: 'bram' },
+    doctor: { label: 'DR. HALE', cls: 'sp-human', voice: 340, role: 'doctor' },
+    registrar: { label: 'REGISTRAR', cls: 'sp-agent', voice: 470, role: 'registrar' },
+    teacher: { label: 'TEACHER', cls: 'sp-human', voice: 320, role: 'teacher' },
+    tutorYes: { label: 'TUTOR 1', cls: 'sp-agent', voice: 780, role: 'tutor_yes' },
+    tutorNo: { label: 'TUTOR 2', cls: 'sp-agent', voice: 540, role: 'tutor_no' },
+    ama: { label: 'AMA’S AGENT', cls: 'sp-agent', voice: 600, role: 'ama' },
+    barista: { label: 'CAFE AGENT', cls: 'sp-agent', voice: 720, role: 'barista' },
+    stranger: { label: 'FELLOW RIDER', cls: 'sp-human', voice: 360, role: null },
+    pupil: { label: 'PUPIL', cls: 'sp-human', voice: 560, role: null },
     sign: { label: 'SIGN', cls: 'sp-sign', voice: 200, role: null },
     note: { label: 'FIELD NOTE', cls: 'sp-sign', voice: 240, role: null },
   };
@@ -399,25 +408,88 @@ ${svg}
     });
   };
 
+  /* ---- Day 2 morning: what your agents did overnight ---- */
+  ui.ledger = function (cfg) {
+    return new Promise((resolve) => {
+      openPanel(`
+<div class="ptitle">${esc(cfg.title)}</div>
+<div class="ledger">${cfg.rows.map(([k, n], i) => `<div class="lrow${i === cfg.rows.length - 1 ? ' last' : ''}"><span>${esc(k)}</span><b data-n="${n}">0</b></div>`).join('')}</div>
+<p class="pcap">${fmt(cfg.outro)}</p>
+<div class="pfoot"><span class="dim">${esc(cfg.foot || '')}</span><button class="pbtn">Continue ▶</button></div>`, 'p-ledger');
+      const nums = [...panelEl.querySelectorAll('.lrow b')];
+      const t0 = performance.now();
+      let raf;
+      const tick = (now) => {
+        const k = Math.min(1, (now - t0) / 1400);
+        nums.forEach((el, i) => {
+          const kk = Math.min(1, Math.max(0, k * 1.25 - i * 0.06));
+          el.textContent = Math.round(+el.dataset.n * (1 - Math.pow(1 - kk, 3))).toLocaleString('en-US');
+        });
+        if (k < 1) raf = requestAnimationFrame(tick);
+        else AW.audio.chime();
+      };
+      raf = requestAnimationFrame(tick);
+      const close = () => { cancelAnimationFrame(raf); AW.audio.confirm(); AW.input.popModal(handler); closePanel(); resolve(); };
+      const handler = (a) => { if (a === 'act' || a === 'back') close(); };
+      panelEl.querySelector('.pbtn').addEventListener('click', close);
+      AW.input.pushModal(handler);
+    });
+  };
+
+  /* ---- Day 2 evening: how much each part of the day changed ---- */
+  ui.dayChart = function (cfg) {
+    return new Promise((resolve) => {
+      const btns = cfg.buttons;
+      let sel = 0;
+      const draw = () => {
+        openPanel(`
+<div class="ptitle big">${esc(cfg.title)}</div>
+<p class="psub">${fmt(cfg.sub)}</p>
+<div class="dchart">${cfg.rows.map((r, i) => `<div class="drow" style="--d:${i * 0.07}s">
+  <div class="dl"><b>${esc(r.label)}</b><span class="dbar"><i style="--w:${r.amount}%"></i></span></div>
+  <div class="dft"><span class="f">${esc(r.from)}</span><span class="t">→ ${esc(r.to)}</span></div>
+</div>`).join('')}</div>
+<p class="pcap">${fmt(cfg.outro)}</p>
+<div class="pbtns">${btns.map((b, i) => `<button class="pbtn ${i === sel ? 'sel' : ''}" data-i="${i}">${esc(b.label)}</button>`).join('')}</div>`, 'p-dchart');
+        panelEl.querySelectorAll('.pbtns .pbtn').forEach((el) => el.addEventListener('click', () => { sel = +el.dataset.i; pick(); }));
+      };
+      const pick = () => { AW.audio.confirm(); AW.input.popModal(handler); closePanel(); resolve(btns[sel].id); };
+      // move the selection without redrawing, so the bars don't animate again
+      const mark = () => panelEl.querySelectorAll('.pbtns .pbtn').forEach((el, i) => el.classList.toggle('sel', i === sel));
+      const handler = (a) => {
+        if (a === 'left' || a === 'up') { sel = (sel + btns.length - 1) % btns.length; mark(); AW.audio.text(400); }
+        else if (a === 'right' || a === 'down') { sel = (sel + 1) % btns.length; mark(); AW.audio.text(400); }
+        else if (a === 'act') pick();
+      };
+      AW.input.pushModal(handler);
+      draw();
+    });
+  };
+
   /* ---- notebook ---- */
   ui.notebook = function () {
     if (panelEl && !panelEl.classList.contains('hidden')) return;
     const G = AW.game;
     const V = AW.VERSIONS[G.version];
     const NOTES = AW.NOTES;
-    const cards = NOTES.map((n) => {
+    const card = (n) => {
       const seen = (G.seen && G.seen[n.n]) || [];
       const done = G.done.has(n.n);
       return `<div class="nb ${done ? 'done' : ''}">
-  <div class="nbh"><span class="code">${n.n}</span><b>${esc(n.title)}</b><span class="sec">§ ${esc(n.sections)}</span></div>
+  <div class="nbh"><span class="code">${n.time || n.n}</span><b>${esc(n.title)}</b><span class="sec">${n.time ? esc(n.sections) : '§ ' + esc(n.sections)}</span></div>
   ${done ? `<blockquote>“${esc(n.quote)}” <cite>${esc(n.cite)}</cite></blockquote>
   ${['I', 'II', 'III'].filter((v) => seen.includes(v)).map((v) => `<p class="obs"><span class="vv">${v}</span> ${esc(n.observed[v])}</p>`).join('')}
   ${['I', 'II', 'III'].filter((v) => !seen.includes(v)).length ? `<p class="obs dim">Not yet seen as ${['I', 'II', 'III'].filter((v) => !seen.includes(v)).map((v) => AW.VERSIONS[v].name).join(' or ')}.</p>` : ''}`
         : `<p class="obs dim">${esc(n.teaser)}</p>`}
 </div>`;
-    }).join('');
+    };
+    const count = (d) => G.DAYS[d].filter((k) => G.done.has(k)).length + '/' + G.DAYS[d].length;
+    const section = (d, head) => `<div class="nbday">${head} <span class="dim">· ${count(d)}</span></div>` + NOTES.filter((n) => (n.day || 1) === d).map(card).join('');
+    // the day you're in comes first
+    const days = G.day === 2 ? [[2, 'DAY 2 · AN ORDINARY TUESDAY'], [1, 'DAY 1 · TEN CHAPTERS']] : [[1, 'DAY 1 · TEN CHAPTERS'], [2, 'DAY 2 · AN ORDINARY TUESDAY']];
+    const cards = days.map(([d, h]) => section(d, h)).join('');
     openPanel(`
-<div class="ptitle">FIELD NOTEBOOK <span class="dim">· Parallax · ${G.done.size}/10</span></div>
+<div class="ptitle">FIELD NOTEBOOK <span class="dim">· Parallax · Day ${G.day}</span></div>
 <div class="reading"><b>${esc(AW.VERSIONS[G.version].key)} · ${esc(V.name)}.</b> ${esc(V.reading)} <span class="dim">${esc(V.leans)}</span></div>
 <div class="nbs">${cards}</div>
 <div class="pfoot"><span>Quotes are from the Agentworld brief (Bratton, Antikythera).</span><button class="pbtn">Close</button></div>`, 'p-notebook');
@@ -445,7 +517,7 @@ ${svg}
 <p><kbd>V</kbd> or <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch interpretation. The town re-materializes around you; your progress stays.</p>
 <p><kbd>N</kbd> field notebook: each chapter of the brief, with a quote and what you saw.</p>
 <p><kbd>M</kbd> sound on/off</p>
-<p class="dim">Follow the glowing marker. Ten stops, one per chapter, about five minutes. You can wander off and talk to anyone.</p>
+<p class="dim">Follow the glowing marker. Day 1 has ten stops, one per chapter of the brief. Day 2 is an ordinary Tuesday in the same town: commute, work, doctor, paperwork, lunch, school. Each day takes about five minutes. You can wander off and talk to anyone.</p>
 </div>
 <div class="pfoot"><span></span><button class="pbtn">Close</button></div>`, 'p-help');
     const close = () => { AW.input.popModal(handler); closePanel(); };
@@ -482,9 +554,14 @@ ${svg}
     const G = AW.game;
     const n = G.nextObjective();
     const el = $('#hud-obj');
-    if (!n) { el.innerHTML = '<span class="code">✓</span> Field visit complete. Switch worlds or wander.'; return; }
+    if (!n) {
+      el.innerHTML = G.day === 2
+        ? '<span class="code">✓</span> Tuesday is over. Talk to Mira for Day 1, or wander.'
+        : '<span class="code">✓</span> Day 1 complete. Talk to Mira to start Day 2.';
+      return;
+    }
     const note = AW.NOTES[n - 1];
-    el.innerHTML = `<span class="code">CH.${n}</span> ${esc(note.title)}`;
+    el.innerHTML = G.day === 2 ? `<span class="code">${note.time}</span> ${esc(note.title)}` : `<span class="code">CH.${n}</span> ${esc(note.title)}`;
   };
   ui.updateHud = function () {
     const G = AW.game;
@@ -498,6 +575,9 @@ ${svg}
   ui.title = function (save) {
     return new Promise((resolve) => {
       const vs = ['I', 'II', 'III'];
+      const sd = save && save.day === 2 ? 2 : 1;
+      const resumable = !!(save && (save.done.length || sd === 2));
+      const progress = save ? `Day ${sd} · ${save.done.filter((n) => AW.game.DAYS[sd].includes(n)).length}/${AW.game.DAYS[sd].length}` : '';
       let sel = save ? vs.indexOf(save.v) : 0;
       if (sel < 0) sel = 0;
       titleEl.classList.remove('hidden');
@@ -507,21 +587,23 @@ ${svg}
 <div class="tbox">
   <div class="kicker">A PREEMPTIVE ANTHROPOLOGY OF OPEN-WORLD CENTAUR SOCIETIES</div>
   <h1>AGENTWORLD</h1>
-  <div class="tsub">Parallax: a five-minute field visit</div>
-  <p class="tintro">A town of 312 humans and 31,200 agents, built from the ten chapters of the Agentworld brief. The brief leaves room to interpret, so the town comes in three readings. Pick one to start; switch any time with <kbd>V</kbd>.</p>
+  <div class="tsub">Parallax: a field visit in two days, about five minutes each</div>
+  <p class="tintro">A town of 312 humans and 31,200 agents, built from the ten chapters of the Agentworld brief. Day 1 walks you through the ideas; Day 2 is an ordinary Tuesday there. The brief leaves room to interpret, so the town comes in three readings. Pick one to start; switch any time with <kbd>V</kbd>.</p>
   <div class="cards">${vs.map((v, i) => {
     const V = AW.VERSIONS[v];
     return `<button class="card ${i === sel ? 'sel' : ''}" data-i="${i}" data-v="${v}"><span class="rn">${v}</span><b>${esc(V.name)}</b><i>${esc(V.sub)}</i><span class="rd">${esc(V.reading)}</span><span class="ln">${esc(V.leans)}</span></button>`;
   }).join('')}</div>
   <div class="tfoot">
-    ${save && save.done.length ? `<button class="tbtn" data-act="continue">Continue (${save.done.length}/10)</button><button class="tbtn ghost" data-act="new">Start over</button>` : `<button class="tbtn" data-act="new">Begin ▶</button>`}
+    ${resumable ? `<button class="tbtn" data-act="continue">Continue (${esc(progress)})</button>` : `<button class="tbtn" data-act="new">Begin Day 1 ▶</button>`}
+    <button class="tbtn ghost" data-act="day2">${resumable && save.day === 2 ? 'Restart Day 2' : 'Day 2: an ordinary Tuesday'}</button>
+    ${resumable ? '<button class="tbtn ghost" data-act="new">Start over</button>' : ''}
     <span class="keys"><kbd>←</kbd><kbd>→</kbd> choose · <kbd>Space</kbd> begin · best with sound</span>
   </div>
   <div class="credit">An interactive reading of <i>Agentworld</i> by Benjamin Bratton (Antikythera). Original game; all art drawn in code.</div>
 </div>`;
         titleEl.querySelectorAll('.card').forEach((el) => {
           el.addEventListener('pointerenter', () => { if (sel !== +el.dataset.i) { sel = +el.dataset.i; preview(); draw(); } });
-          el.addEventListener('click', () => { sel = +el.dataset.i; go(save && save.done.length ? 'continue' : 'new'); });
+          el.addEventListener('click', () => { sel = +el.dataset.i; go(resumable ? 'continue' : 'new'); });
         });
         titleEl.querySelectorAll('.tbtn').forEach((el) => el.addEventListener('click', () => go(el.dataset.act)));
       };
@@ -534,13 +616,13 @@ ${svg}
         titleEl.classList.add('hidden');
         AW.audio.unlock();
         AW.audio.confirm();
-        resolve({ version: vs[sel], resume: act === 'continue' ? save : null });
+        resolve({ version: vs[sel], resume: act === 'continue' ? save : act === 'day2' && save ? Object.assign({}, save, { day: 2, done: save.done.filter((n) => n <= 10) }) : null, day: act === 'day2' ? 2 : null, fresh2: act === 'day2' });
       };
       const handler = (a) => {
         if (a === 'left' || a === 'up') { sel = (sel + 2) % 3; preview(); draw(); AW.audio.text(400); }
         else if (a === 'right' || a === 'down') { sel = (sel + 1) % 3; preview(); draw(); AW.audio.text(400); }
         else if (/^v[1-3]$/.test(a)) { sel = +a[1] - 1; preview(); draw(); }
-        else if (a === 'act') go(save && save.done.length ? 'continue' : 'new');
+        else if (a === 'act') go(resumable ? 'continue' : 'new');
       };
       AW.input.pushModal(handler);
       preview();
