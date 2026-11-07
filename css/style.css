@@ -515,6 +515,37 @@ body[data-v='II'] .graph .node.on text { fill: #04191a; }
 .pbtns .pbtn.sel { background: var(--line); color: var(--box); }
 body[data-v='II'] .pbtns .pbtn.sel { color: #04191a; }
 
+/* ---- day 2: the overnight ledger ---- */
+.p-ledger { width: min(520px, 94vw); }
+.ledger { display: grid; gap: 2px; margin: 4px 0 2px; }
+.lrow { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 5px 10px; border-radius: var(--radius); animation: rise 0.4s ease-out backwards; }
+.lrow:nth-child(odd) { background: var(--box2); }
+.lrow span { color: var(--ink2); }
+.lrow b { font-family: var(--pix); font-weight: 400; font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.lrow.last { margin-top: 6px; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--box)); }
+.lrow.last span { color: var(--ink); font-weight: 600; }
+.lrow.last b { color: var(--accent); }
+.lrow:nth-child(2) { animation-delay: 0.06s; } .lrow:nth-child(3) { animation-delay: 0.12s; }
+.lrow:nth-child(4) { animation-delay: 0.18s; } .lrow:nth-child(5) { animation-delay: 0.24s; }
+
+/* ---- day 2: how much each part of the day changed ---- */
+.p-dchart { width: min(780px, 96vw); }
+.dchart { display: grid; gap: 3px; }
+.drow { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 12px; align-items: center; padding: 4px 8px; border-radius: var(--radius); animation: rise 0.4s ease-out backwards; animation-delay: var(--d); }
+.drow:nth-child(odd) { background: var(--box2); }
+.dl { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dl b { font-family: var(--pix); font-weight: 400; font-size: 12px; letter-spacing: 0.03em; }
+.dbar { display: block; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--line) 18%, transparent); overflow: hidden; }
+.dbar i { display: block; height: 100%; width: var(--w); border-radius: 4px; background: var(--accent); transform-origin: left; animation: grow 1s ease-out backwards; animation-delay: calc(var(--d) + 0.2s); }
+.dft { display: flex; flex-direction: column; font-size: 13px; line-height: 1.3; min-width: 0; }
+.dft .f { color: var(--ink2); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.dft .t { color: var(--ink); font-weight: 600; }
+.p-dchart .pcap { text-align: center; font-style: italic; min-height: 0; margin: 12px 0 8px; }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (max-width: 560px) {
+  .drow { grid-template-columns: 1fr; gap: 4px; }
+}
+
 /* ---- notebook ---- */
 .p-notebook { width: min(760px, 96vw); }
 .reading { font-size: 14px; padding: 8px 10px; background: var(--box2); border-radius: var(--radius); margin-bottom: 10px; }
@@ -528,6 +559,8 @@ body[data-v='II'] .pbtns .pbtn.sel { color: #04191a; }
 .nb cite { font-style: normal; font-size: 12px; color: var(--ink2); }
 .nb .obs { margin: 4px 0 0; font-size: 14px; }
 .nb .vv { font-family: var(--pix); font-size: 11px; background: var(--box2); padding: 0 5px; margin-right: 4px; border-radius: var(--radius); }
+.nbday { position: sticky; top: 0; z-index: 1; font-family: var(--pix); font-size: 12px; letter-spacing: 0.05em; color: var(--accent); padding: 6px 2px 4px; background: var(--box); border-bottom: 1px solid color-mix(in srgb, var(--line) 35%, transparent); }
+.nbday ~ .nbday { margin-top: 10px; }
 
 /* ---- help ---- */
 .help p { margin: 8px 0; }

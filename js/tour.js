@@ -120,7 +120,7 @@
 
   /* ===================================================== cast */
   function castSpawn(o) {
-    const e = G().spawn(Object.assign({ solid: true }, o));
+    const e = G().spawn(Object.assign({ solid: true, castDay: 1 }, o));
     return e;
   }
   const genericSpec = (e) => (v) => AW.V.generic(v, e.kind, e.seed, e.specOpts);
@@ -202,6 +202,7 @@
     const g = G();
     if (g.busy) return;
     g.busy = true;
+    g.curStop = n;
     AW.input.clearQueue();
     let after = null;
     try {
@@ -212,10 +213,10 @@
       g.seen = g.seen || {};
       g.seen[n] = Array.from(new Set([...(g.seen[n] || []), g.version]));
       g.save();
-      if (n !== 10) {
+      if (n !== 10 && n !== 18) {
         AW.audio.chime();
         const nx = g.nextObjective();
-        AW.ui.toast(`✎ Added to your notebook: **Ch.${n} ${AW.NOTES[n - 1].title}** (N to read).${nx ? ' Next: follow the marker to Ch.' + nx + '.' : ''}`, 3800);
+        AW.ui.toast(`✎ Added to your notebook: **${tour.stopName(n)}** (N to read).${nx ? ' Next: ' + (g.day === 2 ? tour.stopName(nx) : 'follow the marker to Ch.' + nx) + '.' : ''}`, 3800);
       }
     } catch (err) {
       console.error(err);
@@ -226,12 +227,19 @@
       g.fx.ghosts = [];
       g.fx.droste = null;
       g.freeWalk = false;
+      g.curStop = null;
+      g.cam.target = null;
       if (!g.cam.follow) await g.camFollow(300);
       g.busy = false;
       AW.ui.updateObjective();
-      g.lastStation = world.stationAt(g.player.x, g.player.y);
+      g.lastStation = g.stationHere(g.player.x, g.player.y);
     }
     if (after) await after();
+  };
+  // "Ch.4 Open World Ecologies" on Day 1, "12:30 Lunch with friends" on Day 2
+  tour.stopName = (n) => {
+    const note = AW.NOTES[n - 1];
+    return note.time ? `${note.time} ${note.title}` : `Ch.${n} ${note.title}`;
   };
 
   async function walkPlayer(x, y, face) {
@@ -249,14 +257,14 @@
   tour.offerReplay = async function (n, target) {
     const g = G();
     if (g.busy) return;
-    const opts = [`Replay Ch.${n} as ${AW.VERSIONS[g.version].name}`];
+    const opts = [`Replay ${n > 10 ? AW.NOTES[n - 1].time + ' ' + AW.NOTES[n - 1].title : 'Ch.' + n} as ${AW.VERSIONS[g.version].name}`];
     if (target) opts.push(targetLabel(target));
     opts.push('Not now');
     // hold whoever the player faces in place while the card is open
     const held = target && target.kind === 'ent' ? target.e : null;
     if (held) g.busyRoles.add(held);
     let k;
-    try { k = await choose(opts, `Ch.${n}, ${AW.NOTES[n - 1].title}.`); }
+    try { k = await choose(opts, `${tour.stopName(n)}.`); }
     finally { if (held) g.busyRoles.delete(held); }
     if (k === 0) tour.run(n, true);
     else if (target && k === 1) tour.inspect(target);
@@ -270,7 +278,10 @@
     return tour.prop(tg.pr);
   };
 
-  const TALK_NAMES = { odile: 'Odile', jun: 'Jun', sol: 'Sol', kid: 'Nia', pip: 'Pip', kintsu: 'Kintsu', bram: 'Bram', courier: 'the courier', clerk: 'the clerk', court_referee: 'the referee' };
+  const TALK_NAMES = {
+    odile: 'Odile', jun: 'Jun', sol: 'Sol', kid: 'Nia', pip: 'Pip', kintsu: 'Kintsu', bram: 'Bram', courier: 'the courier', clerk: 'the clerk', court_referee: 'the referee',
+    doctor: 'Dr. Hale', registrar: 'the registrar', teacher: 'the teacher', tutor_yes: 'Tutor 1', tutor_no: 'Tutor 2', ama: 'Ama’s agent', pupil: 'the pupil',
+  };
   const PROP_LABELS = { board: 'Read the census board', simtable: 'Look at the sim table', console: 'Look at the console', well: 'Look at the Commons', table: 'Look at the table' };
   const cap = (s) => s.charAt(0) + s.slice(1).toLowerCase();
   function targetLabel(tg) {
@@ -314,6 +325,9 @@
 
   /* ===================================================== the ten stops */
   const STOPS = {};
+  // shared with day2.js, which adds stops 11 to 18
+  tour.STOPS = STOPS;
+  tour.kit = { say, choose, wait, t, castSpawn: (o) => castSpawn(o), walkPlayer: (x, y, f) => walkPlayer(x, y, f), refreshSpecs: () => refreshSpecs() };
 
   /* ---- 1. The Crossover Point ---- */
   STOPS[1] = async function () {
@@ -777,13 +791,16 @@
         ],
         outro: '“That world may never arrive, and it may also be here already, and in some odd way, it may be both.”',
         buttons: [
+          { id: 'day2', label: 'Day 2: an ordinary Tuesday ▶' },
           { id: 'v:' + others[0], label: `See it as ${others[0]} · ${AW.VERSIONS[others[0]].name}` },
           { id: 'v:' + others[1], label: `See it as ${others[1]} · ${AW.VERSIONS[others[1]].name}` },
           { id: 'roam', label: 'Keep exploring' },
           { id: 'restart', label: 'Start over' },
         ],
       });
-      if (act.startsWith('v:')) {
+      if (act === 'day2') {
+        await AW.day2.enter();
+      } else if (act.startsWith('v:')) {
         g.setVersion(act.slice(2));
         AW.ui.toast(`Every stop can be replayed in this reading: stand on a ✓ and press Space. Or just wander and talk to people.`, 5200);
       } else if (act === 'restart') {
@@ -807,7 +824,9 @@
       const v = g.version;
       const r = e.role || '';
       const sp = (who, text, label) => say(who, text, label ? { label } : undefined);
-      if (e === g.mira) {
+      if (AW.day2 && (await AW.day2.talk(e, sp))) {
+        // handled by Day 2
+      } else if (e === g.mira) {
         const n = g.nextObjective();
         const lines = n
           ? [`Next is Ch.${n}, ${AW.NOTES[n - 1].title}. Follow the marker.`,
@@ -873,7 +892,7 @@
       sim: 'The forecasts are made here. They are also, slightly, causes.',
       atelier: 'Where templates become someone.',
       school: 'Four children. Thirty-one tutors.',
-      hall: 'Town hall: three humans, nine hundred agents, one shared calendar.',
+      clinic: 'Most patients here are seen years before they feel anything.',
       switch: 'Where people conduct instead of chat.',
       registry: 'Where verdicts and contracts go to become inputs for something else.',
       court: 'The Hall of Roles.',

@@ -26,13 +26,17 @@
     nicheStage: 0,
     mapCanvas: [null, null],
     overview: null,
-    fx: { droste: null, overview: null, floaters: [], ghosts: [], sparkles: [], flash: 0, pulses: [], tether: true },
+    fx: { droste: null, overview: null, floaters: [], ghosts: [], sparkles: [], flash: 0, pulses: [], tether: true, night: 0 },
     counts: { h: 0, a: 0, sub: 0 },
     speaking: null,
     commonsHinted: false,
     lastStation: null,
+    day: 1,          // 1: the ten chapters; 2: an ordinary Tuesday
+    d2: {},          // choices made on Day 2 that later stops remember
+    curStop: null,   // the stop whose scene is running
     DIRS, OPP,
   });
+  G.DAYS = { 1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 2: [11, 12, 13, 14, 15, 16, 17, 18] };
 
   let canvas, ctx;
 
@@ -87,6 +91,7 @@
     if (e === G.player) return !G.solidAt(nx, ny, e);
     if (e.wander) {
       if (!world.roadlike(nx, ny)) return false;
+      if (G.noWander && G.noWander.has(nx + ',' + ny)) return false; // a lane kept clear for a scene
       const p = G.player;
       if (p && ((p.x === nx && p.y === ny) || (p.moving && p.fx === nx && p.fy === ny))) return false;
       return !G.solidAt(nx, ny, e);
@@ -225,28 +230,43 @@
     if (AW.input.take('act') && !G.freeWalk) interact();
   }
 
+  // the stop the player is standing in, for the current day: the next objective
+  // wins, then any unfinished stop. Where finished stops overlap, Day 1 replays the
+  // first chapter listed; Day 2 the later hour (home in the evening is the evening).
+  G.stationHere = function (x, y) {
+    const list = world.stationsAt(x, y, G.day);
+    if (!list.length) return null;
+    const next = G.nextObjective();
+    return list.find((s) => s.n === next) || list.find((s) => !G.done.has(s.n)) ||
+      (G.day === 2 ? list[list.length - 1] : list[0]);
+  };
+
   function onPlayerArrive() {
     const p = G.player;
     if (G.freeWalk) G.stepCount = (G.stepCount || 0) + 1;
     if (G.busy || G.mode !== 'play') return;
-    const st = world.stationAt(p.x, p.y);
+    const st = G.stationHere(p.x, p.y);
+    const later = st && G.day === 2 && !G.done.has(st.n) && st.n !== G.nextObjective();
     if (st !== G.lastStation) {
       G.lastStation = st;
       if (st && G.done.has(st.n)) AW.ui.toast(AW.V.replayHint(st.n, G.version), 2600);
+      else if (later) AW.ui.toast(AW.V.laterHint(st.n), 2600);
     }
     if (st && !G.done.has(st.n)) {
       if (st.n === 10 && !G.allBeforeDone()) {
         if (!G.commonsHinted) { G.commonsHinted = true; AW.ui.toast(AW.V.commonsHint(G.version), 3800); }
         return;
       }
+      if (later) return; // Day 2 runs in order, like a day does
       AW.tour.run(st.n);
     }
   }
   G.allBeforeDone = () => [1, 2, 3, 4, 5, 6, 7, 8, 9].every((n) => G.done.has(n));
   G.nextObjective = function () {
-    for (let n = 1; n <= 10; n++) if (!G.done.has(n)) return n;
+    for (const n of G.DAYS[G.day]) if (!G.done.has(n)) return n;
     return null;
   };
+  G.dayDone = (d) => G.DAYS[d].every((n) => G.done.has(n));
 
   // what the player is facing: a character, a sign, a building or a prop
   function facing() {
@@ -269,10 +289,12 @@
     // On a finished stop, Space always offers the replay. Whatever the player
     // faces (the board, a door, someone in the scene) becomes a second option
     // on the card instead of swallowing the press.
-    const st = world.stationAt(p.x, p.y);
-    if (st && G.done.has(st.n)) { AW.tour.offerReplay(st.n, target); return; }
+    const st = G.stationHere(p.x, p.y);
+    const miraNear = G.mira && !G.mira.hidden && Math.abs(G.mira.x - p.x) + Math.abs(G.mira.y - p.y) <= 1;
+    // facing nothing with Mira beside you: she is the second option (that is how Day 2 starts and ends)
+    if (st && G.done.has(st.n)) { AW.tour.offerReplay(st.n, target || (miraNear ? { kind: 'ent', e: G.mira } : null)); return; }
     if (target) { AW.tour.inspect(target); return; }
-    if (G.mira && !G.mira.hidden && Math.abs(G.mira.x - p.x) + Math.abs(G.mira.y - p.y) <= 1) AW.tour.talk(G.mira);
+    if (miraNear) AW.tour.talk(G.mira);
   }
 
   /* ============================================================ population */
@@ -390,7 +412,7 @@
     const changed = v !== G.version;
     G.version = v;
     AW.art.clearCache();
-    G.nicheStage = G.done.has(4) ? 2 : AW.V.initialNiche(v);
+    G.nicheStage = G.day === 2 || G.done.has(4) ? 2 : AW.V.initialNiche(v);
     G.buildMap();
     for (const e of G.entities) e.spec = specFor(e, v);
     G.populate();
@@ -424,8 +446,9 @@
       const k = U.ease(U.clamp(a.t / a.dur, 0, 1));
       c.x = U.lerp(a.x0, a.x1, k); c.y = U.lerp(a.y0, a.y1, k); c.scale = U.lerp(a.s0, a.s1, k);
       if (a.t >= a.dur) { c.anim = null; a.res(); }
-    } else if (c.follow && G.player) {
-      c.x = G.player.px + 8; c.y = G.player.py + 8;
+    } else if (c.follow && (c.target || G.player)) {
+      const f = c.target || G.player;
+      c.x = f.px + 8; c.y = f.py + 8;
     }
     if (c.scale >= 0.999) {
       const hw = AW.VW / 2, hh = AW.VH / 2;
@@ -564,6 +587,9 @@
       g.addColorStop(0, 'rgba(5,15,25,0)'); g.addColorStop(1, 'rgba(5,15,25,0.45)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, AW.VW, AW.VH);
     }
+    const tint = G.day === 2 && AW.V.dayTint(v, G.curStop || G.nextObjective() || 18);
+    if (tint) { ctx.fillStyle = tint; ctx.fillRect(0, 0, AW.VW, AW.VH); }
+    if (G.fx.night > 0) { ctx.fillStyle = U.rgba(v === 'III' ? '#10104a' : '#04060c', G.fx.night); ctx.fillRect(0, 0, AW.VW, AW.VH); }
     if (!G.busy && G.mode === 'play' && !G.fx.overview) drawObjectiveArrow(pal);
     if (G.fx.droste) drawDroste(pal);
     if (G.fx.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${G.fx.flash * 0.8})`; ctx.fillRect(0, 0, AW.VW, AW.VH); }
@@ -578,6 +604,7 @@
   }
 
   function drawEnt(e, pal) {
+    if (e.draw) { e.draw(ctx, Math.round(e.px), Math.round(e.py), pal); return; }
     if (!e.spec) return;
     const moving = e.moving || e.queue;
     const frame = moving ? (Math.floor(e.animT * 2) % 2 === 0 ? 1 : 2) : 0;
@@ -637,8 +664,11 @@
     const v = G.version;
     const next = G.nextObjective();
     for (const st of world.stations) {
+      if ((st.day || 1) !== G.day) continue;
       const done = G.done.has(st.n);
       if (st.n === 10 && !G.allBeforeDone() && !done) continue;
+      if (G.day === 2 && !done && st.n !== next) continue; // later today
+      if (G.day === 2 && done && st.n === 11 && G.done.has(18)) continue; // one ✓ at home is enough
       const x = st.focus[0] * T + 8, y = st.focus[1] * T - 2 + Math.sin(G.time * 3 + st.n) * 2;
       const isNext = st.n === next;
       const col = v === 'III' ? '#2a2ae0' : v === 'II' ? '#6ff5d2' : '#ffd23f';
@@ -656,7 +686,7 @@
       ctx.beginPath(); ctx.moveTo(x, y - r - 1); ctx.lineTo(x + r + 1, y); ctx.lineTo(x, y + r + 1); ctx.lineTo(x - r - 1, y); ctx.closePath(); ctx.fill();
       ctx.fillStyle = col;
       ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); ctx.fill();
-      const label = String(st.n);
+      const label = String(G.day === 2 ? st.n - 10 : st.n);
       AW.font.drawCentered(ctx, label, x + (label.length > 1 ? 0 : 0.5), y - 2, v === 'III' ? '#ffffff' : '#1d1d2b');
     }
   }
@@ -685,7 +715,8 @@
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -5); ctx.lineTo(-2, 0); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill();
     ctx.restore();
-    AW.font.drawHalo(ctx, 'CH.' + n, Math.round(ax - Math.cos(ang) * 16), Math.round(ay - Math.sin(ang) * 14 - 2), col, G.version === 'III' ? '#ffffff' : '#1d1d2b', true);
+    const tag = G.day === 2 ? AW.NOTES[n - 1].time : 'CH.' + n;
+    AW.font.drawHalo(ctx, tag, Math.round(ax - Math.cos(ang) * 16), Math.round(ay - Math.sin(ang) * 14 - 2), col, G.version === 'III' ? '#ffffff' : '#1d1d2b', true);
   }
 
   /* ---- live model of the town on the sim table (descriptive simulation) ---- */
@@ -1020,7 +1051,7 @@
 
   /* ============================================================ save */
   G.save = function () {
-    try { localStorage.setItem('agentworld-parallax', JSON.stringify({ v: G.version, done: [...G.done], seen: G.seen || {}, indiv: G.indivChoice || 0 })); } catch (e) {}
+    try { localStorage.setItem('agentworld-parallax', JSON.stringify({ v: G.version, done: [...G.done], seen: G.seen || {}, indiv: G.indivChoice || 0, day: G.day, d2: G.d2 || {} })); } catch (e) {}
   };
   G.load = function () {
     try {
@@ -1041,26 +1072,28 @@
     requestAnimationFrame(loop);
   };
 
-  G.start = function (version, resume) {
+  G.start = function (version, resume, day) {
     G.mode = 'play';
     G.entities = [];
     G.done = new Set(resume ? resume.done : []);
     G.seen = (resume && resume.seen) || {};
     G.indivChoice = (resume && resume.indiv) || 0;
-    G.lens = false; G.busy = false; G.freeWalk = false; G.commonsHinted = false;
-    G.fx.overview = null; G.fx.droste = null; G.fx.ghosts = [];
+    G.day = day || (resume && resume.day) || 1;
+    G.d2 = Object.assign({}, resume && resume.d2);
+    G.lens = false; G.busy = false; G.freeWalk = false; G.commonsHinted = false; G.curStop = null;
+    G.fx.overview = null; G.fx.droste = null; G.fx.ghosts = []; G.fx.night = 0;
+    G.noWander = null;
+    G.cam.target = null;
     G.version = version;
     const gx = world.gate.x, gy = world.gate.y;
     let sx = gx, sy = gy, dir = 'up';
-    if (resume && resume.done.length) {
-      const lastN = Math.max(...resume.done);
-      const st = world.station(lastN);
-      [sx, sy] = st.stand; dir = st.face;
-    }
+    const mine = resume ? resume.done.filter((n) => G.DAYS[G.day].includes(n)) : [];
+    if (mine.length) [sx, sy, dir] = world.resumeAt(Math.max(...mine));
+    else if (G.day === 2) { [sx, sy] = world.station(11).stand; dir = 'down'; }
     G.player = G.spawn({ x: sx, y: sy, role: 'player', kind: 'human', dir, solid: false, speed: 5.5, name: 'You' });
     G.mira = G.spawn({ x: sx, y: sy + 1, role: 'mira', kind: 'agent', dir, name: 'Mira', label: 'MIRA' });
-    if (resume) G.placeMiraBehind();
-    AW.tour.spawnCast();
+    if (resume || G.day === 2) G.placeMiraBehind();
+    if (G.day === 2) AW.day2.spawnCast(); else AW.tour.spawnCast();
     G.setVersion(version, { force: true, silent: true });
     G.cam.x = G.player.px + 8; G.cam.y = G.player.py + 8; G.cam.scale = 1; G.cam.follow = true;
     AW.ui.showHud(true);
