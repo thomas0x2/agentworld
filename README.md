@@ -27,7 +27,7 @@ python3 -m http.server 8000   # then open http://localhost:8000
 | N | Field notebook: each chapter's key quote and what you saw in each reading |
 | H, M | Help, sound |
 
-On phones and tablets an on-screen pad appears. Progress is saved in the browser; add `?fresh` to the URL to ignore the save.
+A finished stop shows a ✓. Stand on it and press Space to replay it in the current reading, which is the easiest way to compare readings. On phones and tablets an on-screen pad appears. Progress is saved in the browser; add `?fresh` to the URL to ignore the save.
 
 ## The ten stops
 

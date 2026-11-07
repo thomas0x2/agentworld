@@ -246,12 +246,45 @@
     if (g.mira) g.faceToward(g.mira, p);
   }
 
-  tour.offerReplay = async function (n) {
+  tour.offerReplay = async function (n, target) {
     const g = G();
     if (g.busy) return;
-    const k = await choose([`Replay Ch.${n} as ${AW.VERSIONS[g.version].name}`, 'Not now'], `Ch.${n}, ${AW.NOTES[n - 1].title}.`);
+    const opts = [`Replay Ch.${n} as ${AW.VERSIONS[g.version].name}`];
+    if (target) opts.push(targetLabel(target));
+    opts.push('Not now');
+    // hold whoever the player faces in place while the card is open
+    const held = target && target.kind === 'ent' ? target.e : null;
+    if (held) g.busyRoles.add(held);
+    let k;
+    try { k = await choose(opts, `Ch.${n}, ${AW.NOTES[n - 1].title}.`); }
+    finally { if (held) g.busyRoles.delete(held); }
     if (k === 0) tour.run(n, true);
+    else if (target && k === 1) tour.inspect(target);
   };
+
+  // Space on whatever the player faces
+  tour.inspect = function (tg) {
+    if (tg.kind === 'ent') return tour.talk(tg.e);
+    if (tg.kind === 'sign') return tour.sign(tg.id);
+    if (tg.kind === 'building') return tour.building(tg.b);
+    return tour.prop(tg.pr);
+  };
+
+  const TALK_NAMES = { odile: 'Odile', jun: 'Jun', sol: 'Sol', kid: 'Nia', pip: 'Pip', kintsu: 'Kintsu', bram: 'Bram', courier: 'the courier', clerk: 'the clerk', court_referee: 'the referee' };
+  const PROP_LABELS = { board: 'Read the census board', simtable: 'Look at the sim table', console: 'Look at the console', well: 'Look at the Commons', table: 'Look at the table' };
+  const cap = (s) => s.charAt(0) + s.slice(1).toLowerCase();
+  function targetLabel(tg) {
+    const g = G();
+    if (tg.kind === 'sign') return 'Read the sign';
+    if (tg.kind === 'building') return 'Look at the building';
+    if (tg.kind === 'prop') return PROP_LABELS[tg.pr.kind] || 'Look closer';
+    const e = tg.e;
+    if (e === g.mira) return 'Talk to Mira';
+    if (e.fork) return 'Talk to your ' + cap(e.label);
+    if (e.role === 'tailor') return 'Talk to the ' + t({ I: 'tailor', II: 'molter', III: 'assembler' });
+    if (INDIV.includes(e.role)) return 'Talk to ' + cap(e.label);
+    return 'Talk to ' + (TALK_NAMES[e.role] || 'them');
+  }
 
   /* ===================================================== intro */
   tour.intro = async function () {

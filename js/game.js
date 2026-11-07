@@ -248,19 +248,30 @@
     return null;
   };
 
-  function interact() {
+  // what the player is facing: a character, a sign, a building or a prop
+  function facing() {
     const p = G.player;
     const [dx, dy] = DIRS[p.dir];
     const tx = p.x + dx, ty = p.y + dy;
     const e = G.entAt(tx, ty, p);
-    if (e) { AW.tour.talk(e); return; }
-    if (world.get(tx, ty) === TL.SIGN) { AW.tour.sign(world.signs[tx + ',' + ty]); return; }
+    if (e) return { kind: 'ent', e };
+    if (world.get(tx, ty) === TL.SIGN) return { kind: 'sign', id: world.signs[tx + ',' + ty] };
     const b = world.buildingAt(tx, ty);
-    if (b) { AW.tour.building(b); return; }
+    if (b) return { kind: 'building', b };
     const pr = world.propAt(tx, ty);
-    if (pr) { AW.tour.prop(pr); return; }
+    if (pr) return { kind: 'prop', pr };
+    return null;
+  }
+
+  function interact() {
+    const p = G.player;
+    const target = facing();
+    // On a finished stop, Space always offers the replay. Whatever the player
+    // faces (the board, a door, someone in the scene) becomes a second option
+    // on the card instead of swallowing the press.
     const st = world.stationAt(p.x, p.y);
-    if (st && G.done.has(st.n)) { AW.tour.offerReplay(st.n); return; }
+    if (st && G.done.has(st.n)) { AW.tour.offerReplay(st.n, target); return; }
+    if (target) { AW.tour.inspect(target); return; }
     if (G.mira && !G.mira.hidden && Math.abs(G.mira.x - p.x) + Math.abs(G.mira.y - p.y) <= 1) AW.tour.talk(G.mira);
   }
 
