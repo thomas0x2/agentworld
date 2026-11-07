@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Agentworld: Parallax</title>
+  <meta name="description" content="A five-minute top-down field visit to a town of 312 humans and 31,200 agents, built from the ten chapters of the Agentworld brief, in three switchable readings.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Space+Grotesk:wght@400;600&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-v="I">
+  <main id="app">
+    <div id="stage" data-v="I">
+      <canvas id="screen" width="384" height="240" aria-label="The town of Parallax, seen from above"></canvas>
+
+      <div id="hud" class="hidden">
+        <div class="hud-l">
+          <div id="hud-ver" class="pill"></div>
+          <div id="hud-obj" class="pill obj"></div>
+        </div>
+        <div class="hud-r">
+          <div class="btns">
+            <div class="seg" role="group" aria-label="Switch reading">
+              <button data-act="v" data-v="I" title="I · Masquerade (1)">I</button>
+              <button data-act="v" data-v="II" title="II · Rainforest (2)">II</button>
+              <button data-act="v" data-v="III" title="III · Lattice (3)">III</button>
+            </div>
+            <button data-act="lens" class="lens" title="Lens (L)"><span class="eye">◉</span> <span id="lens-name">UNMASK</span></button>
+            <button data-act="notes" title="Field notebook (N)">✎</button>
+            <button data-act="help" title="How to play (H)">?</button>
+            <button data-act="mute" title="Sound (M)">♪</button>
+          </div>
+          <div class="pill counts" title="Humans and agents in view">
+            <span class="ch">H <b id="cnt-h">0</b></span>
+            <span class="bar"><span id="ratio-h"></span></span>
+            <span class="ca">A <b id="cnt-a">0</b></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="caption" class="hidden" aria-live="polite"></div>
+      <div id="dialog" class="hidden" aria-live="polite">
+        <div class="name"></div>
+        <div class="text"></div>
+        <div class="more hidden">▼</div>
+      </div>
+      <div id="choices" class="hidden"></div>
+      <div id="toast" aria-live="polite"></div>
+    </div>
+
+    <div id="touch" aria-hidden="true">
+      <div class="dpad">
+        <button data-k="up" class="u">▲</button>
+        <button data-k="left" class="l">◀</button>
+        <button data-k="right" class="r">▶</button>
+        <button data-k="down" class="d">▼</button>
+      </div>
+      <div class="mid">
+        <button data-k="lens">LENS</button>
+        <button data-k="version">WORLD</button>
+        <button data-k="notebook">NOTES</button>
+      </div>
+      <div class="ab">
+        <button data-k="run" class="b">RUN</button>
+        <button data-k="act" class="a">A</button>
+      </div>
+    </div>
+  </main>
+
+  <div id="panel" class="panel hidden" role="dialog" aria-modal="true"></div>
+  <div id="title" class="hidden"></div>
+  <noscript><p class="noscript">Agentworld: Parallax needs JavaScript to run.</p></noscript>
+
+  <script src="js/core.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/versions.js"></script>
+  <script src="js/niche.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/tour.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
